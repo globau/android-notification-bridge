@@ -1,0 +1,28 @@
+# macos
+.DS_Store
+
+# claude code
+.claude/settings.local.json
+.claude/.cc-writes/
+
+# mac app (swiftpm, xcode)
+mac/.build/
+mac/build/
+.swiftpm/
+xcuserdata/
+DerivedData/
+*.xcworkspace/xcuserdata/
+
+# android (gradle, android studio)
+.gradle/
+.kotlin/
+build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+.idea/
+*.iml
+*.apk
+*.aab
+*.hprof

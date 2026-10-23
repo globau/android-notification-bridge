@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>au.glob.NotificationBridge</string>
+	<key>CFBundleName</key>
+	<string>Notification Bridge</string>
+	<key>CFBundleDisplayName</key>
+	<string>Notification Bridge</string>
+	<key>CFBundleExecutable</key>
+	<string>NotificationBridge</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.1</string>
+	<key>CFBundleVersion</key>
+	<string>2</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Receives notifications forwarded from your Android phone on the local network.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_notifbridge._tcp</string>
+	</array>
+</dict>
+</plist>

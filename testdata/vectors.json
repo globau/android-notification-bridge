@@ -1,0 +1,13 @@
+{
+  "macFingerprintSha256" : "384cc8e593320621beac4b55fede5d672f484d4c7a487b3e66cbf5dce6746d14",
+  "macStaticPrivate" : "dcd4172e0b5e0b5ffbe0d3b00fcbae17051de314742b9930e7d3f5dc961d2d90",
+  "macStaticPublic" : "0eb62953624f7621a000b1668c39d3877d4b32000e6f7113ec34e4357c81a649",
+  "nonce" : "000102030405060708090a0b",
+  "phoneEphemeralPrivate" : "6d264925ad9f66f87b2ec6c562c3abeea2f3547fa35022402e6f03cb40a9415f",
+  "phoneEphemeralPublic" : "cbab59971ee20870748fb29e95c4bd02a9d9ae235a8a531988ef155b8bdce004",
+  "phoneStaticPrivate" : "8bf52fdf679746bed5c360faabade18348c82763802bf96e6e0c4559470b1ec7",
+  "phoneStaticPublic" : "b924d2559310192ebe65016cfeec9a2aaeab67def816183ca3beeeea6c0c754b",
+  "plaintext" : "{\"type\":\"posted\",\"key\":\"0|com.example|1|null|10001\",\"package\":\"com.example\",\"appName\":\"Example\",\"title\":\"Hello\",\"text\":\"World\",\"ts\":1761177600000}",
+  "sealed" : "000102030405060708090a0b23bb3d7f2c619ebc044d0dab8eac31fef3b5254255d0e34c346425dcfbdec0d1a50332d2cbbfe29b384ae1c03480020f2b6a9bc218298cdcb486c7cc2044e65c5c5c5e1e98293ad1699af55d47f60d18ec4b336b07818e68220330c3c0308f2ec963d2e2ad426bfd79ce592016b431cce101551615bbf14690e5a817b54f41b28fdcbf9a34cd57ee4a5c4e7442affb9fb3d93e6d1d84139a0bc37c12338dfd294f4a",
+  "sessionKey" : "ed66879c43f7a8f13153d7fd8f8f65ef3044ec14886dbf6123203742c3605637"
+}
