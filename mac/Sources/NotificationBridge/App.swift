@@ -9,9 +9,6 @@ final class Bridge: ObservableObject {
     @Published var lastSeen: (name: String, date: Date)?
     @Published var trusted = Store.trusted
     @Published var pending: [Phone] = []
-    @Published var paused = Store.paused {
-        didSet { Store.paused = paused }
-    }
     @Published var launchAtLogin = SMAppService.mainApp.status == .enabled
     let fingerprint: String
 
@@ -66,7 +63,6 @@ final class Bridge: ObservableObject {
     private func deliver(_ message: Message, from phone: Phone) {
         switch message.type {
         case .posted:
-            guard !paused else { return }
             notifier.post(message, from: phone)
         case .removed:
             notifier.remove(message, from: phone)
@@ -114,28 +110,17 @@ struct NotificationBridgeApp: App {
         MenuBarExtra {
             BridgeMenu(bridge: bridge)
         } label: {
-            Image(nsImage: bridge.paused ? MenuBarIcon.paused : MenuBarIcon.normal)
+            Image(nsImage: menuBarIcon)
         }
     }
 }
 
-enum MenuBarIcon {
-    static let normal: NSImage = {
-        let image = NSImage(named: "MenuBarIcon")
-            ?? NSImage(systemSymbolName: "iphone.radiowaves.left.and.right", accessibilityDescription: nil)!
-        image.isTemplate = true
-        return image
-    }()
-
-    static let paused: NSImage = {
-        let image = NSImage(size: normal.size, flipped: false) { rect in
-            normal.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 0.35)
-            return true
-        }
-        image.isTemplate = true
-        return image
-    }()
-}
+private let menuBarIcon: NSImage = {
+    let image = NSImage(named: "MenuBarIcon")
+        ?? NSImage(systemSymbolName: "iphone.radiowaves.left.and.right", accessibilityDescription: nil)!
+    image.isTemplate = true
+    return image
+}()
 
 struct BridgeMenu: View {
     @ObservedObject var bridge: Bridge
@@ -157,7 +142,6 @@ struct BridgeMenu: View {
         }
 
         Divider()
-        Toggle("Pause", isOn: $bridge.paused)
         Toggle(
             "Launch at Login",
             isOn: Binding(get: { bridge.launchAtLogin }, set: { bridge.setLaunchAtLogin($0) }))

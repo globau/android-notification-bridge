@@ -37,11 +37,6 @@ enum Store {
         set { save(newValue, "deniedPhones") }
     }
 
-    static var paused: Bool {
-        get { defaults.bool(forKey: "paused") }
-        set { defaults.set(newValue, forKey: "paused") }
-    }
-
     private static func load(_ key: String) -> [Phone] {
         guard let data = defaults.data(forKey: key) else { return [] }
         return (try? JSONDecoder().decode([Phone].self, from: data)) ?? []

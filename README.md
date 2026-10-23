@@ -87,12 +87,6 @@ notification since Notification Bridge was installed. Switch off any app you
 don't want to see on your Mac. Apps appear in the list the first time they post
 a notification, so the list grows over time.
 
-### Pausing
-
-Choose **Pause** in the Mac app's menu to stop notifications appearing, for
-example while you're presenting. The menu bar icon dims while paused.
-Notifications that arrive while paused are discarded, not saved for later.
-
 ## Unpairing
 
 - **On the phone:** tap **Forget Mac**. The next time it sends a notification
@@ -137,5 +131,5 @@ have extra battery-saving settings of their own that can stop background apps;
 if yours does, exclude Notification Bridge from them.
 
 **Nothing appears on the Mac, but the phone says "Delivered"**: check that
-**Pause** is off, that notifications for Notification Bridge are allowed in
-System Settings > Notifications, and that a Focus mode isn't hiding them.
+notifications for Notification Bridge are allowed in System Settings >
+Notifications, and that a Focus mode isn't hiding them.
