@@ -168,3 +168,13 @@ versions of macOS, Android and Notification Bridge you're running.
 
 Issues are reserved for confirmed, actionable work. Once we've talked it
 through and confirmed it's a bug, I'll open an issue to track the fix.
+
+## Licence
+
+The code is released under the [MIT License](LICENSE).
+
+The app icons are modified from the
+[Material Symbols](https://github.com/google/material-design-icons) by Google
+and are released under the [Apache License 2.0](icons/LICENSE). This covers
+`icons/` and the copies built into both apps (under `mac/Resources/` and
+`android/app/src/main/res/`).
