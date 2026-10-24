@@ -15,15 +15,17 @@ icons:
 	mkdir -p android/app/src/main/res
 	cp -R icons/android/res/ android/app/src/main/res/
 
-# both apps in one zip; ditto preserves the app bundle's signature
+# both apps in one zip; ditto preserves the app bundle's signature.
+# build outputs are moved, not copied, so no stray bundles confuse launchservices
 dist:
 	$(MAKE) -C mac notarise
 	$(MAKE) -C android release
 	rm -rf build
 	mkdir -p "$(DIST)"
-	ditto "mac/build/Notification Bridge.app" "$(DIST)/Notification Bridge.app"
-	cp android/app/build/outputs/apk/release/app-release.apk "$(DIST)/Notification Bridge.apk"
+	mv "mac/build/Notification Bridge.app" "$(DIST)/"
+	mv android/app/build/outputs/apk/release/app-release.apk "$(DIST)/Notification Bridge.apk"
 	ditto -c -k --keepParent "$(DIST)" "$(ZIP)"
+	rm -rf "$(DIST)"
 
 # only publishes what's on github; the tag is created at the exact local commit
 release:
