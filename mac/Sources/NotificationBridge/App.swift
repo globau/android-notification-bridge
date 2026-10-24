@@ -13,6 +13,7 @@ final class Bridge: ObservableObject {
     let fingerprint: String
 
     private let notifier = Notifier()
+    private let messageWindow = MessageWindow()
     private var listener: Listener?
     private var buffered: [Data: [Message]] = [:]
 
@@ -26,6 +27,9 @@ final class Bridge: ObservableObject {
         fingerprint = BridgeCrypto.fingerprint(identity.publicKey.rawRepresentation)
         notifier.onPairingDecision = { [weak self] key, allow in
             MainActor.assumeIsolated { self?.decide(key, allow: allow) }
+        }
+        notifier.onOpen = { [weak self] details in
+            MainActor.assumeIsolated { self?.messageWindow.show(details) }
         }
         listener = Listener(
             identity: identity,

@@ -9,6 +9,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     private let center = UNUserNotificationCenter.current()
     var onPairingDecision: ((Data, Bool) -> Void)?
+    var onOpen: ((MessageDetails) -> Void)?
 
     override init() {
         super.init()
@@ -42,6 +43,12 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         content.body = message.text ?? ""
         content.sound = .default
         content.threadIdentifier = message.package ?? appName
+        content.userInfo = [
+            "appName": appName,
+            "title": message.title ?? "",
+            "text": message.text ?? "",
+            "phoneName": phone.name,
+        ]
         center.add(UNNotificationRequest(identifier: identifier(message, phone), content: content, trigger: nil))
     }
 
@@ -86,8 +93,11 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     ) {
         defer { completionHandler() }
         let content = response.notification.request.content
-        guard content.categoryIdentifier == Self.pairingCategory,
-            let encoded = content.userInfo["publicKey"] as? String,
+        guard content.categoryIdentifier == Self.pairingCategory else {
+            open(response)
+            return
+        }
+        guard let encoded = content.userInfo["publicKey"] as? String,
             let publicKey = Data(base64Encoded: encoded)
         else { return }
         switch response.actionIdentifier {
@@ -98,5 +108,18 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         default:
             break
         }
+    }
+
+    private func open(_ response: UNNotificationResponse) {
+        let info = response.notification.request.content.userInfo
+        guard response.actionIdentifier == UNNotificationDefaultActionIdentifier,
+            let appName = info["appName"] as? String,
+            let title = info["title"] as? String,
+            let text = info["text"] as? String,
+            let phoneName = info["phoneName"] as? String
+        else { return }
+        let details = MessageDetails(
+            appName: appName, title: title, text: text, phoneName: phoneName, date: response.notification.date)
+        DispatchQueue.main.async { self.onOpen?(details) }
     }
 }

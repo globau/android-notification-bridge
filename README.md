@@ -94,6 +94,9 @@ pairing.
 Just plug your phone in and let the screen turn off. New notifications will
 show up on your Mac.
 
+Click a notification on the Mac to open it in a window showing its full text,
+which you can select and copy.
+
 Some notifications are never forwarded, because they would only be noise:
 
 - ongoing notifications, such as music playback, navigation or downloads in
