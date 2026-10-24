@@ -6,7 +6,6 @@ import SwiftUI
 @MainActor
 final class Bridge: ObservableObject {
     @Published var listening = false
-    @Published var lastSeen: (name: String, date: Date)?
     @Published var trusted = Store.trusted
     @Published var pending: [Phone] = []
     @Published var launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -47,7 +46,6 @@ final class Bridge: ObservableObject {
         if Store.denied.contains(where: { $0.publicKey == phone.publicKey }) {
             return .denied
         }
-        lastSeen = (phone.name, Date())
         guard let index = trusted.firstIndex(where: { $0.publicKey == phone.publicKey }) else {
             if !pending.contains(where: { $0.publicKey == phone.publicKey }) {
                 pending.append(phone)
@@ -131,9 +129,6 @@ struct BridgeMenu: View {
 
     var body: some View {
         Text(bridge.listening ? "Listening" : "Not listening")
-        if let seen = bridge.lastSeen {
-            Text("Last heard from \(seen.name) \(seen.date.formatted(.relative(presentation: .named)))")
-        }
         if !bridge.pending.isEmpty {
             Divider()
             Text("This Mac: \(bridge.fingerprint)")
