@@ -13,6 +13,7 @@ final class Bridge: ObservableObject {
 
     private let notifier = Notifier()
     private let messageWindow = MessageWindow()
+    private let aboutWindow = AboutWindow()
     private var listener: Listener?
     private var buffered: [Data: [Message]] = [:]
 
@@ -102,6 +103,10 @@ final class Bridge: ObservableObject {
         }
         launchAtLogin = SMAppService.mainApp.status == .enabled
     }
+
+    func showAbout() {
+        aboutWindow.show()
+    }
 }
 
 @main
@@ -152,6 +157,7 @@ struct BridgeMenu: View {
             }
         }
         Divider()
+        Button("About Notification Bridge") { bridge.showAbout() }
         Button("Quit") { NSApplication.shared.terminate(nil) }
             .keyboardShortcut("q")
     }
