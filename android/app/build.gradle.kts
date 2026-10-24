@@ -1,6 +1,14 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
 }
+
+val localProps = Properties().also { props ->
+    rootProject.file("local.properties").takeIf { it.exists() }?.reader()?.use(props::load)
+}
+
+val appVersion = rootProject.file("../VERSION").readText().trim()
 
 android {
     namespace = "au.glob.notificationbridge"
@@ -12,14 +20,25 @@ android {
         applicationId = "au.glob.notificationbridge"
         minSdk = 34
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = appVersion.split(".").map(String::toInt).let { (major, minor, patch) ->
+            major * 10000 + minor * 100 + patch
+        }
+        versionName = appVersion
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = rootProject.file("../release-keystore.jks")
+            storePassword = localProps.getProperty("KEYSTORE_PASS")
+            keyAlias = "release"
+            keyPassword = localProps.getProperty("KEY_PASS")
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

@@ -3,10 +3,13 @@ APP_ID := au.glob.notificationbridge
 APK := app/build/outputs/apk/debug/app-debug.apk
 DEVICE = $(shell adb devices | tail -n +2 | grep . | grep -v emulator | awk '{print $$1}')
 
-.PHONY: build test run install clean
+.PHONY: build release test run install clean
 
 build:
 	./gradlew assembleDebug
+
+release:
+	./gradlew assembleRelease
 
 test:
 	./gradlew testDebugUnitTest

@@ -18,6 +18,27 @@ and the phone talks directly to the Mac over an encrypted connection.
 - An Android phone running Android 14 or later.
 - Both on the same Wi-Fi network.
 
+## Installing
+
+Download the latest `notification-bridge-<version>.zip` from the
+[Releases](https://github.com/globau/android-notification-bridge/releases) page
+and unzip it. Inside are both apps.
+
+### Mac
+
+Move `Notification Bridge.app` to your Applications folder and open it. macOS
+will check that you want to open an app downloaded from the internet; click
+**Open**.
+
+### Android
+
+Copy `Notification Bridge.apk` to your phone (for example over USB, or by
+emailing it to yourself) and open it. Android will ask whether to allow the app
+you opened it from to install apps; allow it, then tap **Install**.
+
+To update either app later, download the new release and install it over the
+top. Your pairing and settings are kept.
+
 ## Setting up the Mac
 
 Notification Bridge lives in the menu bar; there's no Dock icon or window.
