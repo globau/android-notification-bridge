@@ -1,13 +1,13 @@
-# Notification Bridge
+# <img src="icons/mac/AppIcon128.png" alt="" width="48" height="48" align="absmiddle"> Notification Bridge
 
 See your Android phone's notifications on your Mac while the phone is charging
 on the other side of the room.
 
-When your phone's screen is off and it's plugged in, Notification Bridge
-forwards each new notification to your Mac, where it appears as a normal macOS
-notification. Dismiss it on the phone and it disappears from the Mac too. As
-soon as you pick the phone up (or unplug it), forwarding stops, so you don't get
-everything twice.
+When your phone's screen is off and it's plugged into a charger, Notification
+Bridge forwards each new notification to your Mac, where it appears as a normal
+macOS notification. Dismiss it on the phone and it disappears from the Mac too.
+As soon as you turn the screen on (or unplug it), forwarding stops, so you don't
+get everything twice.
 
 Everything stays on your local network. There's no account, no cloud service,
 and the phone talks directly to the Mac over an encrypted connection.
@@ -157,3 +157,14 @@ if yours does, exclude Notification Bridge from them.
 **Nothing appears on the Mac, but the phone says "Delivered"**: check that
 notifications for Notification Bridge are allowed in System Settings >
 Notifications, and that a Focus mode isn't hiding them.
+
+## Reporting bugs
+
+If something isn't working and the troubleshooting tips above don't help,
+please start a
+[discussion](https://github.com/globau/android-notification-bridge/discussions)
+on GitHub. Describe what you expected to happen, what happened instead, and the
+versions of macOS, Android and Notification Bridge you're running.
+
+Issues are reserved for confirmed, actionable work. Once we've talked it
+through and confirmed it's a bug, I'll open an issue to track the fix.
