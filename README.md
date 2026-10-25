@@ -1,13 +1,17 @@
 # <img src="icons/mac/AppIcon128.png" alt="" width="48" height="48" align="absmiddle"> Notification Bridge
 
-See your Android phone's notifications on your Mac while the phone is charging
-on the other side of the room.
+See your Android phone's notifications on your Mac while the phone sits
+charging with its screen off, so you can tell at a glance whether something
+needs you without picking the phone up.
 
 When your phone's screen is off and it's plugged into a charger, Notification
 Bridge forwards each new notification to your Mac, where it appears as a normal
 macOS notification. Dismiss it on the phone and it disappears from the Mac too.
 As soon as you turn the screen on (or unplug it), forwarding stops, so you don't
 get everything twice.
+
+It's most useful when your phone is in silent mode: the Mac shows you what
+arrived, so you can ignore what can wait and pick up the phone for what can't.
 
 Everything stays on your local network. There's no account, no cloud service,
 and the phone talks directly to the Mac over an encrypted connection.
@@ -101,7 +105,8 @@ Some notifications are never forwarded, because they would only be noise:
 
 - ongoing notifications, such as music playback, navigation or downloads in
   progress;
-- silent, low-priority notifications;
+- minimised notifications that only appear when you expand the notification
+  shade;
 - notifications with no title or text.
 
 ### Choosing which apps are forwarded
