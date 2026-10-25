@@ -109,6 +109,11 @@ Some notifications are never forwarded, because they would only be noise:
   shade;
 - notifications with no title or text.
 
+Silent notifications are held back for five seconds before being forwarded, and
+dropped if in that time they've gone away or turned into an ongoing
+notification. This keeps out brief status messages such as "Backing up...".
+Notifications that would normally make a sound arrive straight away.
+
 ### Choosing which apps are forwarded
 
 The **Apps** section of the phone app lists every app that has posted a
