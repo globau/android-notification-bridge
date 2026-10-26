@@ -2,11 +2,17 @@ VERSION := $(shell cat VERSION)
 DIST := build/Notification Bridge $(VERSION)
 ZIP := build/notification-bridge-$(VERSION).zip
 
-.PHONY: icons test dist release
+.PHONY: icons test build dist release
 
 test:
 	$(MAKE) -C mac test
 	$(MAKE) -C android test
+
+build:
+	$(MAKE) -C mac check-build
+	$(MAKE) -C android check-env
+	$(MAKE) -C mac build
+	$(MAKE) -C android build
 
 # copies the designed icons from icons/ into each app
 icons:
@@ -16,8 +22,10 @@ icons:
 	cp -R icons/android/res/ android/app/src/main/res/
 
 # both apps in one zip; ditto preserves the app bundle's signature.
+# android is checked first so a missing keystore doesn't waste a notarisation
 # build outputs are moved, not copied, so no stray bundles confuse launchservices
 dist:
+	$(MAKE) -C android check-release
 	$(MAKE) -C mac notarise
 	$(MAKE) -C android release
 	rm -rf build

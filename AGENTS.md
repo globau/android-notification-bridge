@@ -21,9 +21,9 @@ Use case: the phone sits charging on a desk at work, screen off and in silent mo
 
 ## Building
 
-- `make test` at the repo root runs both test suites.
-- Mac: `cd mac && make test build`. SwiftPM's own sandbox must be disabled (`--disable-sandbox`, already in the Makefile); inside Claude's sandbox swift build still fails, so run unsandboxed.
-- Android: `cd android && make test build`. `make install` / `make run` push the debug APK over `adb` (and launch it). `JAVA_HOME` defaults to `/opt/homebrew/opt/openjdk`. Gradle needs local socket binding (unsandboxed). compileSdk 37.2, minSdk 34.
+- `make test` / `make build` at the repo root run both test suites / build both apps (debug APK, locally signed Mac app).
+- Mac: `cd mac && make test build`. `make test` works with just the Command Line Tools, but `build` needs `actool`, which only ships with Xcode, so `xcode-select` must point at Xcode; `check-env` / `check-build` / `check-notarise` targets fail fast on that and on notarising with no Developer ID. SwiftPM's own sandbox must be disabled (`--disable-sandbox`, already in the Makefile); inside Claude's sandbox swift build still fails, so run unsandboxed.
+- Android: `cd android && make test build`. `make install` / `make run` push the debug APK over `adb` (and launch it). `JAVA_HOME` defaults to `/opt/homebrew/opt/openjdk`. The SDK comes from `sdk.dir` in `android/local.properties`, else `ANDROID_HOME`; `check-env` / `check-release` / `check-device` targets fail fast on a broken JDK, missing SDK, keystore or passwords, or no adb device. Gradle needs local socket binding (unsandboxed). compileSdk 37.2, minSdk 34.
 - Version lives in root `VERSION` (x.y.z); build number / versionCode is `x*10000 + y*100 + z`. Mac `make build` writes both into the bundle's Info.plist (not the source plist); gradle reads it for `versionName` / `versionCode`.
 - Release APK (`cd android && make release`) is signed with `release-keystore.jks` at the repo root (untracked, alias `release`), passwords from `KEYSTORE_PASS` / `KEY_PASS` in `android/local.properties`. Debug builds use the debug key, so switching a phone between debug and release needs an uninstall.
 - `cd mac && make notarise` builds with a secure timestamp (plain `build` uses `--timestamp=none` to stay offline), submits to Apple with `notarytool` using keychain profile `notarytool`, and staples the ticket.

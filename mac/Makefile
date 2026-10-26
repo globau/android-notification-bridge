@@ -10,9 +10,9 @@ TIMESTAMP := --timestamp=none
 # stored with: xcrun notarytool store-credentials notarytool
 NOTARY_PROFILE := notarytool
 
-.PHONY: build notarise test run install clean
+.PHONY: build notarise test run install clean check-env check-build check-notarise
 
-build:
+build: check-build
 	swift build $(SWIFT_FLAGS)
 	rm -rf "$(APP)"
 	mkdir -p "$(APP)/Contents/MacOS" "$(APP)/Contents/Resources"
@@ -27,13 +27,13 @@ build:
 
 # stapling fails unless notarisation was accepted
 notarise: TIMESTAMP := --timestamp
-notarise: build
+notarise: check-notarise build
 	ditto -c -k --keepParent "$(APP)" build/notarise.zip
 	xcrun notarytool submit build/notarise.zip --keychain-profile $(NOTARY_PROFILE) --wait
 	xcrun stapler staple "$(APP)"
 	rm build/notarise.zip
 
-test:
+test: check-env
 	swift test --disable-sandbox
 
 run: build
@@ -46,3 +46,12 @@ install: build
 
 clean:
 	rm -rf .build build
+
+check-env:
+	@xcrun --find swift >/dev/null 2>&1 || { echo "swift not found: install xcode or the command line tools" >&2; exit 1; }
+
+check-build: check-env
+	@xcrun --find actool >/dev/null 2>&1 || { echo "actool not found in $$(xcode-select -p): it needs xcode, select it with eg. sudo xcode-select -s /Applications/Xcode.app" >&2; exit 1; }
+
+check-notarise: check-build
+	@test "$(SIGN_IDENTITY)" != - || { echo "notarisation needs a developer id application certificate in the keychain" >&2; exit 1; }
