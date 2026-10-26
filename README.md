@@ -70,28 +70,31 @@ Each line changes from "missing" to "granted" once it's done.
 
 ## Pairing the phone with your Mac
 
-Make sure the Mac app is running, then on the phone tap **Send test
-notification**.
+Make sure the Mac app is running, then on the phone tap **Add Mac**.
 
-1. The phone looks for your Mac on the network and remembers it.
-2. Your Mac shows an **Allow (phone name)?** notification, with a fingerprint
-   such as `3F2A-91C0-7B4E`.
-3. Check that fingerprint matches the **This phone:** line in the phone app. If
-   you want to be thorough, also check that the fingerprint shown next to your
-   Mac's name on the phone matches **This Mac:** in the Mac app's menu.
+1. The phone searches the network for ten seconds and lists each Mac running
+   Notification Bridge, with its fingerprint, as it's found.
+2. Check that the fingerprint matches **This Mac:** in the Mac app's menu, then
+   tap the Mac. The phone remembers that Mac and sends it a test notification.
+   If your Mac isn't listed, check it's running and tap **Search again**.
+3. Your Mac shows an **Allow (phone name)?** notification, with a fingerprint
+   such as `3F2A-91C0-7B4E`. Check that it matches the **This phone:** line in
+   the phone app.
 4. Click **Allow** on the Mac notification (or choose **Pair (phone name)** >
    **Allow** from the menu bar).
 
-The test notification then appears on your Mac, and the phone's **Last:** line
-reads "Delivered to (your Mac)". You're done.
+The test notification then appears on your Mac, and that Mac's **Last:** line
+on the phone reads "Delivered to (your Mac)". You're done.
 
 The fingerprints are there so you can be sure the phone and the Mac are talking
-to each other and not to some other device on the network. Once paired, the
-phone ignores any other Mac, and the Mac ignores any phone you haven't allowed.
+to each other and not to some other device on the network. The phone only sends
+to Macs you've paired, and the Mac ignores any phone you haven't allowed.
 
-If you have more than one Mac running Notification Bridge on the same network,
-the phone pairs with whichever it finds first. Quit it on the others while
-pairing.
+The phone can be paired with up to three Macs (for example one at work and one
+at home), and every notification is sent to all of them. A Mac that's switched
+off or on another network doesn't hold up delivery to the others. To stop
+sending to a Mac for a while without unpairing it, switch it off in the
+**Macs** section.
 
 ## Everyday use
 
@@ -123,8 +126,8 @@ a notification, so the list grows over time.
 
 ## Unpairing
 
-- **On the phone:** tap **Forget Mac**. The next time it sends a notification
-  it will pair with whichever Mac it finds, and you'll need to allow it again.
+- **On the phone:** tap **Forget** under the Mac in the **Macs** section.
+  Nothing more is sent to that Mac until you pair it again with **Add Mac**.
 - **On the Mac:** choose **Paired Phones** > **Forget "(phone name)"**. The next
   notification from that phone will ask for permission again.
 
@@ -138,10 +141,11 @@ defaults delete au.glob.NotificationBridge deniedPhones
 
 ## Troubleshooting
 
-The **Last:** line in the phone app shows what happened to the most recent
-notification it tried to send.
+Each Mac's **Last:** line in the phone app shows what happened to the most
+recent notification sent to it.
 
-**"Failed: no mac found"**: the phone couldn't find your Mac. Check that the Mac
+**"Failed: mac not found"**: the phone couldn't find your Mac. After this the
+phone waits a minute before looking for it again. Check that the Mac
 app is running and says **Listening** in its menu, that both devices are on the
 same Wi-Fi network, and that the Mac app has local network access (System
 Settings > Privacy & Security > Local Network). Some networks, such as guest or

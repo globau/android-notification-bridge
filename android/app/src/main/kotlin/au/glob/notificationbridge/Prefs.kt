@@ -3,8 +3,24 @@ package au.glob.notificationbridge
 import android.content.Context
 import android.content.SharedPreferences
 import java.util.Base64
+import org.json.JSONArray
+import org.json.JSONObject
 
 class Endpoint(val name: String, val host: String, val port: Int, val publicKey: ByteArray)
+
+/**
+ * approved: the mac has accepted this phone; fingerprints are only shown until then
+ * enabled: nothing is sent to a disabled mac, but it stays paired
+ */
+data class PairedMac(
+    val publicKey: ByteArray,
+    val name: String,
+    val host: String?,
+    val port: Int,
+    val approved: Boolean = false,
+    val lastResult: String? = null,
+    val enabled: Boolean = true,
+)
 
 class Prefs(context: Context) {
     private val prefs: SharedPreferences =
@@ -26,40 +42,59 @@ class Prefs(context: Context) {
             }
         }
 
-    /** the mac's public key is pinned the first time one is seen */
-    var pinnedMac: ByteArray?
-        get() = prefs.getString("macPublic", null)?.let(::decode)
-        set(value) = prefs.edit().putString("macPublic", value?.let(::encode)).apply()
-
-    var endpoint: Endpoint?
-        get() {
-            val key = pinnedMac ?: return null
-            val host = prefs.getString("macHost", null) ?: return null
-            return Endpoint(prefs.getString("macName", "")!!, host, prefs.getInt("macPort", 0), key)
-        }
-        set(value) {
-            prefs.edit().apply {
-                if (value == null) {
-                    remove("macHost")
-                } else {
-                    putString("macName", value.name)
-                    putString("macHost", value.host)
-                    putInt("macPort", value.port)
-                }
-            }.apply()
+    /** macs explicitly paired from the app, at most MAX_MACS */
+    val macs: List<PairedMac>
+        get() = synchronized(lock) {
+            val array = JSONArray(prefs.getString("macs", "[]"))
+            (0 until array.length()).map { i ->
+                val mac = array.getJSONObject(i)
+                PairedMac(
+                    decode(mac.getString("publicKey")),
+                    mac.getString("name"),
+                    mac.optString("host").ifEmpty { null },
+                    mac.optInt("port"),
+                    mac.optBoolean("approved"),
+                    mac.optString("lastResult").ifEmpty { null },
+                    mac.optBoolean("enabled", true),
+                )
+            }
         }
 
-    val macName: String?
-        get() = prefs.getString("macName", null)
+    fun mac(publicKey: ByteArray): PairedMac? = macs.firstOrNull { it.publicKey.contentEquals(publicKey) }
 
-    /** the mac has accepted this phone; fingerprints are only shown until then */
-    var approved: Boolean
-        get() = prefs.getBoolean("approved", false)
-        set(value) = prefs.edit().putBoolean("approved", value).apply()
+    fun addMac(endpoint: Endpoint): Boolean = synchronized(lock) {
+        val current = macs
+        if (current.size >= MAX_MACS || current.any { it.publicKey.contentEquals(endpoint.publicKey) }) {
+            return false
+        }
+        saveMacs(current + PairedMac(endpoint.publicKey, endpoint.name, endpoint.host, endpoint.port))
+        true
+    }
 
-    var lastResult: String?
-        get() = prefs.getString("lastResult", null)
-        set(value) = prefs.edit().putString("lastResult", value).apply()
+    fun updateMac(publicKey: ByteArray, transform: (PairedMac) -> PairedMac) = synchronized(lock) {
+        saveMacs(macs.map { if (it.publicKey.contentEquals(publicKey)) transform(it) else it })
+    }
+
+    fun forgetMac(publicKey: ByteArray) = synchronized(lock) {
+        saveMacs(macs.filterNot { it.publicKey.contentEquals(publicKey) })
+    }
+
+    private fun saveMacs(macs: List<PairedMac>) {
+        val array = JSONArray()
+        macs.forEach {
+            array.put(
+                JSONObject()
+                    .put("publicKey", encode(it.publicKey))
+                    .put("name", it.name)
+                    .put("host", it.host)
+                    .put("port", it.port)
+                    .put("approved", it.approved)
+                    .put("lastResult", it.lastResult)
+                    .put("enabled", it.enabled)
+            )
+        }
+        prefs.edit().putString("macs", array.toString()).apply()
+    }
 
     val seenPackages: Set<String>
         get() = prefs.getStringSet("seen", emptySet())!!
@@ -78,16 +113,13 @@ class Prefs(context: Context) {
         prefs.edit().putStringSet("denied", denied).apply()
     }
 
-    fun forgetMac() {
-        prefs.edit()
-            .remove("macPublic")
-            .remove("macHost")
-            .remove("macName")
-            .remove("macPort")
-            .remove("approved")
-            .apply()
-    }
-
     private fun encode(bytes: ByteArray) = Base64.getEncoder().encodeToString(bytes)
     private fun decode(text: String) = Base64.getDecoder().decode(text)
+
+    companion object {
+        const val MAX_MACS = 3
+
+        /** prefs instances are per component but share the same file, so mac list edits share a lock */
+        private val lock = Any()
+    }
 }

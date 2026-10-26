@@ -14,6 +14,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
+import android.view.Gravity
 import android.view.View
 import android.view.WindowInsets
 import android.widget.Button
@@ -30,6 +31,7 @@ fun appLabel(context: Context, pkg: String): String =
 class MainActivity : Activity() {
     private val prefs by lazy { Prefs(this) }
     private val handler = Handler(Looper.getMainLooper())
+    private val locator by lazy { MacLocator(applicationContext) }
     private lateinit var content: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -86,28 +88,47 @@ class MainActivity : Activity() {
             }
         }
 
-        heading("Mac")
-        val pinned = prefs.pinnedMac
-        val macName = prefs.macName ?: "Mac"
-        when {
-            pinned == null -> text("Not paired yet")
-            prefs.approved -> text(macName)
-            else -> text("$macName (${Crypto.fingerprint(pinned)})")
+        heading("Macs")
+        val macs = prefs.macs
+        if (macs.isEmpty()) {
+            text("Not paired yet")
+        } else {
+            button("Send test notification") {
+                Forwarder.get(this).test()
+                handler.postDelayed(::render, 3000)
+            }
         }
-        if (!prefs.approved) {
+        if (macs.any { !it.approved }) {
             text("This phone: ${Crypto.fingerprint(prefs.identity.publicKey)}")
         }
-        prefs.lastResult?.let { text("Last: $it") }
-        button("Send test notification") {
-            Forwarder.get(this).posted(
-                "test:${System.currentTimeMillis()}", packageName, "Notification Bridge", "Test", "Hello from your phone"
-            )
-            handler.postDelayed(::render, 3000)
+        macs.forEach { mac ->
+            val label = if (mac.approved) mac.name else "${mac.name} (${Crypto.fingerprint(mac.publicKey)})"
+            toggle(label, mac.enabled) { enabled -> prefs.updateMac(mac.publicKey) { it.copy(enabled = enabled) } }
+            content.addView(LinearLayout(this).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, 0, 0, dp(8))
+                addView(TextView(context).apply {
+                    text = mac.lastResult?.let { "Last: $it" }.orEmpty()
+                }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+                addView(Button(context).apply {
+                    text = "Forget"
+                    setOnClickListener {
+                        prefs.forgetMac(mac.publicKey)
+                        render()
+                    }
+                })
+            })
         }
-        if (pinned != null) {
-            button("Forget Mac") {
-                prefs.forgetMac()
-                render()
+
+        if (macs.size < Prefs.MAX_MACS) {
+            button("Add Mac") {
+                AddMacDialog(this, locator) { endpoint ->
+                    if (prefs.addMac(endpoint)) {
+                        Forwarder.get(this).test(endpoint.publicKey)
+                        handler.postDelayed(::render, 3000)
+                    }
+                    render()
+                }.show()
             }
         }
 
@@ -117,14 +138,16 @@ class MainActivity : Activity() {
         prefs.seenPackages
             .map { it to appLabel(this, it) }
             .sortedBy { it.second.lowercase() }
-            .forEach { (pkg, label) ->
-                content.addView(Switch(this).apply {
-                    text = label
-                    isChecked = pkg !in denied
-                    setPadding(0, dp(8), 0, dp(8))
-                    setOnCheckedChangeListener { _, checked -> prefs.setForwarded(pkg, checked) }
-                })
-            }
+            .forEach { (pkg, label) -> toggle(label, pkg !in denied) { prefs.setForwarded(pkg, it) } }
+    }
+
+    private fun toggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+        content.addView(Switch(this).apply {
+            text = label
+            isChecked = checked
+            setPadding(0, dp(8), 0, dp(8))
+            setOnCheckedChangeListener { _, value -> onChange(value) }
+        })
     }
 
     private fun heading(label: String) {

@@ -11,19 +11,29 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
-/** finds the mac's bonjour service; blocking, call off the main thread */
-class MacLocator(context: Context, private val prefs: Prefs) {
+/** finds macs' bonjour services; blocking, call off the main thread */
+class MacLocator(context: Context) {
     private val nsd = context.getSystemService(NsdManager::class.java)
-    private val callbacks = Executors.newSingleThreadExecutor()
 
-    fun locate(timeoutSeconds: Long = 10): Endpoint? {
+    fun locate(publicKey: ByteArray): Endpoint? {
         val found = AtomicReference<Endpoint>()
+        discover { endpoint ->
+            endpoint.publicKey.contentEquals(publicKey) && found.compareAndSet(null, endpoint)
+        }
+        return found.get()
+    }
+
+    /** reports every mac found until the timeout */
+    fun scan(onFound: (Endpoint) -> Unit) = discover { onFound(it); false }
+
+    /** onFound returns true to stop early */
+    private fun discover(timeoutSeconds: Long = 10, onFound: (Endpoint) -> Boolean) {
         val latch = CountDownLatch(1)
         val resolving = mutableListOf<NsdManager.ServiceInfoCallback>()
 
         val discovery = object : NsdManager.DiscoveryListener {
             override fun onServiceFound(service: NsdServiceInfo) {
-                val callback = resolveCallback(found, latch)
+                val callback = resolveCallback(onFound, latch)
                 synchronized(resolving) { resolving += callback }
                 nsd.registerServiceInfoCallback(service, callbacks, callback)
             }
@@ -46,30 +56,18 @@ class MacLocator(context: Context, private val prefs: Prefs) {
         synchronized(resolving) {
             resolving.forEach { runCatching { nsd.unregisterServiceInfoCallback(it) } }
         }
-
-        return found.get()?.also { endpoint ->
-            if (prefs.pinnedMac == null) {
-                prefs.pinnedMac = endpoint.publicKey
-            }
-            prefs.endpoint = endpoint
-        }
     }
 
-    private fun resolveCallback(found: AtomicReference<Endpoint>, latch: CountDownLatch) =
+    private fun resolveCallback(onFound: (Endpoint) -> Boolean, latch: CountDownLatch) =
         object : NsdManager.ServiceInfoCallback {
             override fun onServiceUpdated(info: NsdServiceInfo) {
                 val key = info.attributes["pk"]
                     ?.let { runCatching { Base64.getDecoder().decode(it) }.getOrNull() }
                     ?.takeIf { it.size == 32 }
                     ?: return
-                val pinned = prefs.pinnedMac
-                if (pinned != null && !pinned.contentEquals(key)) {
-                    Log.i(TAG, "ignoring unpinned mac ${info.serviceName}")
-                    return
-                }
                 val address = info.hostAddresses.firstOrNull { it is Inet4Address } ?: info.hostAddresses.firstOrNull()
                     ?: return
-                if (found.compareAndSet(null, Endpoint(info.serviceName, address.hostAddress!!, info.port, key))) {
+                if (onFound(Endpoint(info.serviceName, address.hostAddress!!, info.port, key))) {
                     latch.countDown()
                 }
             }
@@ -85,5 +83,8 @@ class MacLocator(context: Context, private val prefs: Prefs) {
     companion object {
         private const val TAG = "MacLocator"
         private const val SERVICE_TYPE = "_notifbridge._tcp"
+
+        /** shared so locators created per activity don't each leak a thread */
+        private val callbacks = Executors.newSingleThreadExecutor()
     }
 }
