@@ -4,8 +4,9 @@ APK := app/build/outputs/apk/debug/app-debug.apk
 DEVICE = $(shell adb devices | awk 'NR > 1 && $$2 == "device" && $$1 !~ /^emulator-/ { print $$1 }')
 PROP = sed -nE 's/^[[:space:]]*$(1)([[:space:]]*[=:]|[[:space:]])[[:space:]]*//p' local.properties 2>/dev/null | tail -n 1
 SDK_DIR := $(or $(shell $(call PROP,sdk\.dir)),$(ANDROID_HOME))
+AVD ?= Samsung_S25
 
-.PHONY: build release test run install clean check-env check-release check-device
+.PHONY: build release test run run-emulator start-emulator install clean check-env check-release check-device
 
 build: check-env
 	./gradlew assembleDebug
@@ -18,6 +19,16 @@ test: check-env
 
 run: install
 	adb -s "$(DEVICE)" shell am start -n $(APP_ID)/.MainActivity
+
+run-emulator: build start-emulator
+	adb -e install -r $(APK)
+	adb -e shell am start -n $(APP_ID)/.MainActivity
+
+start-emulator: check-env
+	@adb -e get-state >/dev/null 2>&1 || { \
+		"$(SDK_DIR)/emulator/emulator" -avd $(AVD) >/dev/null 2>&1 & \
+		adb -e wait-for-device && \
+		until [ "$$(adb -e shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1 ]; do sleep 1; done; }
 
 install: check-device build
 	adb -s "$(DEVICE)" install -r $(APK)
