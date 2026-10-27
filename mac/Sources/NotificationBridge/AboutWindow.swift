@@ -96,6 +96,7 @@ private struct AboutView: View {
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
             Link("github.com/globau/android-notification-bridge", destination: Self.repo)
+                .focusEffectDisabled()
                 .padding(.top, 4)
         }
         .padding(24)
