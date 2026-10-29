@@ -2,8 +2,9 @@ import AVFoundation
 import QuartzCore
 import os
 
-/// keygen-style tune synthesised live on four tracker-style channels: pulse lead, arpeggio, bass and drums;
-/// effects run at 50 ticks a second with six ticks a row, like an amiga module at speed 6 / 125 bpm
+/// trance tune synthesised live on four tracker-style channels: supersaw lead, gated pad, rolling bass and drums,
+/// with the kick ducking the rest; effects run at 50 ticks a second with six ticks a row, like an amiga module at
+/// speed 6 / 125 bpm
 final class Chiptune {
     static let channels = 4
 
@@ -90,19 +91,26 @@ private struct Section {
     let lead: [[Row]]?
     let drums: Bool
     let bass: Bool
+    /// snare roll over the last two bars, building into the next section
+    let roll: Bool
 
-    init(lead: [String]? = nil, drums: Bool, bass: Bool) {
+    init(lead: [String]? = nil, drums: Bool, bass: Bool, roll: Bool = false) {
         self.lead = lead?.map { $0.split(separator: " ").map(Row.init) }
         self.drums = drums
         self.bass = bass
+        self.roll = roll
     }
 }
 
 private enum Song {
-    /// am, f, c, g as arpeggio root notes
+    /// am, f, c, g as pad root notes
     static let chords: [(root: Int, minor: Bool)] = [(57, true), (53, false), (60, false), (55, false)]
-    /// K kick, S snare, h hi-hat
-    static let drums = Array("K.h.S.h.K.hKS.hh")
+    /// one bar of sixteenths per lane; hats are h closed, o open
+    static let kick = Array("x...x...x...x...")
+    static let clap = Array("....x.......x...")
+    static let hats = Array("hhohhhohhhohhhoh")
+    static let bass = Array(".xxx.xxx.xxx.xxx")
+    static let gate = Array("x.xxx.x.xx.xx.xx")
     static let rowsPerSection = 64
 
     private static let melodyA = [
@@ -123,7 +131,7 @@ private enum Song {
         Section(drums: true, bass: true),
         Section(lead: melodyA, drums: true, bass: true),
         Section(lead: melodyB, drums: true, bass: true),
-        Section(lead: melodyB, drums: false, bass: false),
+        Section(lead: melodyB, drums: false, bass: false, roll: true),
         Section(lead: melodyA, drums: true, bass: true),
         Section(lead: melodyB, drums: true, bass: true),
     ]
@@ -131,40 +139,104 @@ private enum Song {
     static let loopStart = 1
 }
 
-private struct Voice {
-    var frequency = 0.0
-    var volume: Float = 0
-    var duty = 0.5
-    private var phase = 0.0
+private struct Saw {
+    var phase: Double
 
-    mutating func pulse(_ sampleRate: Double) -> Float {
-        phase += frequency / sampleRate
+    /// polyblep rounds off the reset so high notes alias less
+    mutating func next(_ increment: Double) -> Double {
+        phase += increment
         phase -= phase.rounded(.down)
-        return phase < duty ? volume : -volume
+        var value = 2 * phase - 1
+        if phase < increment {
+            let x = phase / increment
+            value -= x + x - x * x - 1
+        } else if phase > 1 - increment {
+            let x = (phase - 1) / increment
+            value -= x * x + x + x + 1
+        }
+        return value
+    }
+}
+
+/// five detuned saws stacked around one pitch
+private struct SuperSaw {
+    private static let detune = [-0.0115, -0.0062, 0, 0.0058, 0.0109]
+    private var saws = detune.indices.map { Saw(phase: Double($0) * 0.29) }
+    var frequency = 0.0
+
+    mutating func next(_ sampleRate: Double) -> Double {
+        var sum = 0.0
+        for i in saws.indices {
+            sum += saws[i].next(frequency * (1 + Self.detune[i]) / sampleRate)
+        }
+        return sum / Double(saws.count)
+    }
+}
+
+/// chamberlin state variable filter; lower damping resonates more
+private struct Filter {
+    private var low = 0.0
+    private var band = 0.0
+
+    mutating func next(_ input: Double, cutoff: Double, damping: Double, sampleRate: Double) -> (low: Double, band: Double, high: Double) {
+        let f = 2 * sin(.pi * min(cutoff, sampleRate / 8) / sampleRate)
+        low += f * band
+        let high = input - low - damping * band
+        band += f * high
+        return (low, band, high)
     }
 }
 
 private final class Synth {
     private static let ticksPerRow = 6
+    /// dotted eighth echo on the lead and pad
+    private static let delayRows = 3
 
     private let sampleRate: Double
     private let samplesPerTick: Int
+    /// per sample step that glides gains to their targets over a few milliseconds, so gates don't click
+    private let smoothing: Double
     private let levels: UnsafeMutablePointer<Float>
+    private let delay: UnsafeMutablePointer<Float>
+    private let delayLength: Int
+    private var delayPosition = 0
     private var sampleInTick = 0
     private var tick = 0
     private var ticks = 0
     private var row = 0
     private var section = 0
 
-    private var lead = Voice()
+    private var lead = SuperSaw()
+    private var leadOctave = SuperSaw()
+    private var leadFilter = Filter()
     private var leadNote: Int?
     private var leadAge = 0
-    private var arp = Voice()
-    private var bass = Voice()
+    private var leadVolume = 0.0
+    private var leadGain = 0.0
 
-    private var drum: Character?
-    private var drumTime = 0.0
-    private var drumPhase = 0.0
+    private var pad = [SuperSaw](repeating: SuperSaw(), count: 4)
+    private var padFilter = Filter()
+    private var padCutoff = 0.0
+    private var padVolume = 0.0
+    private var padGain = 0.0
+
+    private var bass = Saw(phase: 0)
+    private var bassFilter = Filter()
+    private var bassNote = 45
+    private var subPhase = 0.0
+    private var bassVolume = 0.0
+    private var bassGain = 0.0
+
+    private var kickTime = Double.infinity
+    private var kickPhase = 0.0
+    private var clapTime = Double.infinity
+    private var clapFilter = Filter()
+    private var hatTime = Double.infinity
+    private var hatOpen = false
+    private var hatFilter = Filter()
+    private var crashTime = Double.infinity
+    private var snareTime = Double.infinity
+    private var snareVelocity = 0.0
     private var drumLevel: Float = 0
     private var noise: UInt32 = 0x1234_5678
 
@@ -172,6 +244,14 @@ private final class Synth {
         self.sampleRate = sampleRate
         self.levels = levels
         samplesPerTick = Int(sampleRate / 50)
+        smoothing = 1 - exp(-1 / (0.004 * sampleRate))
+        delayLength = samplesPerTick * Self.ticksPerRow * Self.delayRows
+        delay = .allocate(capacity: delayLength)
+        delay.initialize(repeating: 0, count: delayLength)
+    }
+
+    deinit {
+        delay.deallocate()
     }
 
     var samplesPerSection: Int {
@@ -184,33 +264,49 @@ private final class Synth {
                 advanceTick()
             }
             sampleInTick = (sampleInTick + 1) % samplesPerTick
-            let mix = lead.pulse(sampleRate) * 0.22 + arp.pulse(sampleRate) * 0.12 + bass.pulse(sampleRate) * 0.25
-                + drumSample() * 0.4
-            samples[i] = mix * 0.6
+            let drums = drumSample()
+            // sidechain: everything else ducks under the kick
+            let duck = 1 - 0.75 * exp(-kickTime * 9)
+            let lead = leadSample() * (0.7 + 0.3 * duck)
+            let pad = padSample() * duck
+            let bass = bassSample() * duck
+            let echo = Double(delay[delayPosition])
+            delay[delayPosition] = Float(lead * 0.5 + pad * 0.3 + echo * 0.45)
+            delayPosition = (delayPosition + 1) % delayLength
+            let mix = lead * 0.32 + pad * 0.22 + bass * 0.4 + drums * 0.6 + echo * 0.3
+            samples[i] = Float(tanh(mix * 1.2) * 0.6)
         }
     }
 
     private func advanceTick() {
-        lead.volume = leadNote == nil ? lead.volume * 0.6 : max(0.55, lead.volume * 0.96)
-        arp.volume *= 0.85
-        bass.volume *= 0.9
+        let current = Song.sections[section]
+        leadVolume = leadNote == nil ? leadVolume * 0.75 : max(0.7, leadVolume * 0.96)
+        bassVolume *= 0.7
+        if current.drums {
+            padVolume *= 0.8
+        }
         if tick == 0 {
             playRow()
         }
 
         if let leadNote {
             leadAge += 1
-            let vibrato = leadAge > 12 ? sin(Double(leadAge) * 0.9) * 0.008 : 0
+            let vibrato = leadAge > 12 ? sin(Double(leadAge) * 0.9) * 0.006 : 0
             lead.frequency = Self.frequency(leadNote) * (1 + vibrato)
+            leadOctave.frequency = lead.frequency * 2
         }
-        lead.duty = 0.3 + 0.15 * sin(Double(ticks) * 0.04)
         let chord = Song.chords[row / 16]
-        let arpeggio = chord.minor ? [0, 3, 7] : [0, 4, 7]
-        arp.frequency = Self.frequency(chord.root + arpeggio[ticks % 3])
+        let tones = chord.minor ? [0, 3, 7, 12] : [0, 4, 7, 12]
+        for i in pad.indices {
+            pad[i].frequency = Self.frequency(chord.root + tones[i])
+        }
+        let progress = (Double(row) + Double(tick) / Double(Self.ticksPerRow)) / Double(Song.rowsPerSection)
+        // gated chords open up on each step; without drums the filter sweeps up across the section
+        padCutoff = current.drums ? 700 + 3800 * padVolume : 250 * pow(24, progress)
 
-        levels[0] = lead.volume
-        levels[1] = arp.volume
-        levels[2] = bass.volume
+        levels[0] = Float(leadVolume)
+        levels[1] = Float(padVolume)
+        levels[2] = Float(bassVolume)
         levels[3] = drumLevel
 
         ticks += 1
@@ -229,18 +325,35 @@ private final class Synth {
         let current = Song.sections[section]
         let bar = row / 16
         let step = row % 16
-        if step % 2 == 0 {
-            arp.volume = 1
+        padVolume = current.drums ? (Song.gate[step] == "x" ? 1 : 0) : 0.7
+        if current.bass && Song.bass[step] == "x" {
+            bassNote = Song.chords[bar].root % 12 + 36
+            bassVolume = 1
         }
-        if current.bass && step % 2 == 0 {
-            let root = Song.chords[bar].root % 12 + 36
-            bass.frequency = Self.frequency(step % 4 == 2 ? root + 12 : root)
-            bass.volume = 1
+        if current.drums {
+            if row == 0 {
+                crashTime = 0
+            }
+            if Song.kick[step] == "x" {
+                kickTime = 0
+                kickPhase = 0
+            }
+            if Song.clap[step] == "x" {
+                clapTime = 0
+            }
+            if Song.hats[step] != "." {
+                hatTime = 0
+                hatOpen = Song.hats[step] == "o"
+            }
+            if bar == 3 && step >= 12 {
+                snare(0.4 + 0.15 * Double(step - 12))
+            }
         }
-        if current.drums && Song.drums[step] != "." {
-            drum = Song.drums[step]
-            drumTime = 0
-            drumPhase = 0
+        if current.roll && bar >= 2 {
+            let spacing = bar == 2 ? (step < 8 ? 4 : 2) : 1
+            if step % spacing == 0 {
+                snare(0.2 + 0.8 * Double(row - 32) / 32)
+            }
         }
         guard let melody = current.lead else {
             leadNote = nil
@@ -250,7 +363,7 @@ private final class Synth {
         case .note(let note):
             leadNote = note
             leadAge = 0
-            lead.volume = 1
+            leadVolume = 1
         case .off:
             leadNote = nil
         case .hold:
@@ -258,30 +371,73 @@ private final class Synth {
         }
     }
 
-    private func drumSample() -> Float {
-        guard let drum else { return 0 }
-        drumTime += 1 / sampleRate
-        let sample: Double
-        let level: Double
-        switch drum {
-        case "K":
-            drumPhase += (50 + 120 * exp(-drumTime * 35)) / sampleRate
-            level = exp(-drumTime * 10)
-            sample = sin(2 * .pi * drumPhase) * level
-        case "S":
-            drumPhase += 190 / sampleRate
-            level = exp(-drumTime * 20)
-            sample = Double(nextNoise()) * level * 0.7 + sin(2 * .pi * drumPhase) * exp(-drumTime * 40) * 0.5
-        default:
-            level = exp(-drumTime * 70) * 0.35
-            sample = Double(nextNoise()) * level
+    private func snare(_ velocity: Double) {
+        snareTime = 0
+        snareVelocity = velocity
+    }
+
+    private func leadSample() -> Double {
+        leadGain += (leadVolume - leadGain) * smoothing
+        let raw = lead.next(sampleRate) + leadOctave.next(sampleRate) * 0.35
+        return leadFilter.next(raw, cutoff: 1500 + 4500 * leadGain, damping: 0.9, sampleRate: sampleRate).low * leadGain
+    }
+
+    private func padSample() -> Double {
+        padGain += (padVolume - padGain) * smoothing
+        var raw = 0.0
+        for i in pad.indices {
+            raw += pad[i].next(sampleRate)
+        }
+        return padFilter.next(raw * 0.4, cutoff: padCutoff, damping: 0.5, sampleRate: sampleRate).low * padGain
+    }
+
+    private func bassSample() -> Double {
+        bassGain += (bassVolume - bassGain) * smoothing
+        let frequency = Self.frequency(bassNote)
+        subPhase += frequency / 2 / sampleRate
+        subPhase -= subPhase.rounded(.down)
+        let saw = bassFilter.next(bass.next(frequency / sampleRate), cutoff: 150 + 1500 * bassGain, damping: 0.6, sampleRate: sampleRate).low
+        return (saw * 0.8 + sin(2 * .pi * subPhase) * 0.6) * bassGain
+    }
+
+    private func drumSample() -> Double {
+        let step = 1 / sampleRate
+        kickTime += step
+        clapTime += step
+        hatTime += step
+        crashTime += step
+        snareTime += step
+        let noise = Double(nextNoise())
+        var sum = 0.0
+        var level = 0.0
+        if kickTime < 0.4 {
+            kickPhase += (46 + 150 * exp(-kickTime * 30)) * step
+            let envelope = exp(-kickTime * 8)
+            sum += tanh(2.5 * sin(2 * .pi * kickPhase)) * envelope
+            level = envelope
+        }
+        if clapTime < 0.3 {
+            // three quick bursts then a tail, like several hands
+            let envelope = clapTime < 0.03 ? exp(-clapTime.truncatingRemainder(dividingBy: 0.01) * 300) : exp(-(clapTime - 0.03) * 15)
+            sum += clapFilter.next(noise, cutoff: 1300, damping: 0.9, sampleRate: sampleRate).band * envelope * 0.9
+            level = max(level, envelope * 0.8)
+        }
+        let hiss = hatFilter.next(noise, cutoff: 7000, damping: 1, sampleRate: sampleRate).high
+        if hatTime < 0.3 {
+            let envelope = hatOpen ? exp(-hatTime * 16) * 0.5 : exp(-hatTime * 70) * 0.25
+            sum += hiss * envelope
+            level = max(level, envelope)
+        }
+        if crashTime < 2 {
+            sum += hiss * exp(-crashTime * 2.5) * 0.3
+        }
+        if snareTime < 0.3 {
+            let envelope = exp(-snareTime * 22) * snareVelocity
+            sum += (noise * 0.6 + sin(2 * .pi * 185 * snareTime) * 0.5) * envelope
+            level = max(level, envelope)
         }
         drumLevel = Float(level)
-        if level < 0.001 {
-            self.drum = nil
-            drumLevel = 0
-        }
-        return Float(sample)
+        return sum
     }
 
     private func nextNoise() -> Float {
